@@ -72,7 +72,7 @@ public class MyWatchFace extends CanvasWatchFaceService implements DataApi.DataL
 
     GoogleApiClient mGoogleApiClient;
 
-    double value;
+    int value;
 
     String LOG_TAG = "Data Layer Connections";
     public final String WEARABLE_DATA_PATH = "/sunshine/wearabledata";
@@ -111,10 +111,10 @@ public class MyWatchFace extends CanvasWatchFaceService implements DataApi.DataL
                 Log.v(LOG_TAG, "DataItem Changed");
 
                 DataItem dataItem = event.getDataItem();
-                if (dataItem.getUri().getPath().compareTo(WEARABLE_DATA_PATH) == 0) {
+                //if (dataItem.getUri().getPath().compareTo(WEARABLE_DATA_PATH) == 0) {
                     DataMap dataMap = DataMapItem.fromDataItem(dataItem).getDataMap();
 
-                    value = dataMap.getDouble("MAX");
+                    value = dataMap.getInt("MAX");
 
                     Log.d(LOG_TAG, "Received: " + value);
 
@@ -133,7 +133,7 @@ public class MyWatchFace extends CanvasWatchFaceService implements DataApi.DataL
                     //    }
                 }
                 ;
-            }}}
+            }}
 
     private static class EngineHandler extends Handler {
         private final WeakReference<MyWatchFace.Engine> mWeakReference;
@@ -185,7 +185,7 @@ public class MyWatchFace extends CanvasWatchFaceService implements DataApi.DataL
         public void onCreate(SurfaceHolder holder) {
             super.onCreate(holder);
 
-            value = 2.2d;
+            value = 5;
 
             setWatchFaceStyle(new WatchFaceStyle.Builder(MyWatchFace.this)
                     .setCardPeekMode(WatchFaceStyle.PEEK_MODE_VARIABLE)
@@ -336,7 +336,7 @@ public class MyWatchFace extends CanvasWatchFaceService implements DataApi.DataL
             String text = mAmbient
                     ? String.format("%d:%02d", mTime.hour, mTime.minute)
                     : String.format("%d:%02d:%02d", mTime.hour, mTime.minute, mTime.second);
-            canvas.drawText(Double.toString(value), mXOffset, mYOffset, mTextPaint);
+            canvas.drawText(Integer.toString(value), mXOffset, mYOffset, mTextPaint);
         }
 
         /**

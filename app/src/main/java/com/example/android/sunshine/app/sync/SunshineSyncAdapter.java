@@ -425,6 +425,28 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter implements
     }
 
     private void sendDataToWearables(){
+        Uri weatherUri;
+        final String[] NOTIFY_WEARABLE_PROJECTION = new String[]{
+                WeatherContract.WeatherEntry.COLUMN_WEATHER_ID,
+                WeatherContract.WeatherEntry.COLUMN_DATE,
+                WeatherContract.WeatherEntry.COLUMN_MAX_TEMP,
+                WeatherContract.WeatherEntry.COLUMN_MIN_TEMP,
+        };
+        int weatherID;
+        Double maxDegree, minDegree;
+        Long date;
+
+
+        String locationQuery = Utility.getPreferredLocation(getContext());
+        weatherUri = WeatherContract.WeatherEntry.buildWeatherLocationWithDate(locationQuery, System.currentTimeMillis());
+        Cursor cursor = getContext().getContentResolver().query(weatherUri, NOTIFY_WEARABLE_PROJECTION, null, null, null);
+
+        if (cursor != null && cursor.moveToFirst()) {
+            weatherID = cursor.getInt(cursor.getColumnIndex(WeatherContract.WeatherEntry.COLUMN_WEATHER_ID));
+            date = cursor.getLong(cursor.getColumnIndex(WeatherContract.WeatherEntry.COLUMN_DATE));
+            maxDegree = cursor.getDouble(cursor.getColumnIndex(WeatherContract.WeatherEntry.COLUMN_MAX_TEMP));
+            minDegree = cursor.getDouble(cursor.getColumnIndex(WeatherContract.WeatherEntry.COLUMN_MIN_TEMP));
+
 
         //Get the weather icon to pass to the wearable
         Resources resources = getContext().getResources();
@@ -439,8 +461,9 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter implements
         PutDataMapRequest putDataMapRequest = PutDataMapRequest.create(WEARABLE_DATA_PATH);
         //Put the time in so data is considered changed
         putDataMapRequest.getDataMap().putLong("time", new Date().getTime());
-        putDataMapRequest.getDataMap().putDouble("MAX", wearableData.getAsDouble(WeatherContract.WeatherEntry.COLUMN_MAX_TEMP));
-      //  putDataMapRequest.getDataMap().putDouble("MAX", 5.5d);
+       // putDataMapRequest.getDataMap().putDouble("MAX", wearableData.getAsDouble(WeatherContract.WeatherEntry.COLUMN_MAX_TEMP));
+       // putDataMapRequest.getDataMap().putInt("MAX", 10);
+       putDataMapRequest.getDataMap().putInt("MAX", (int) Math.round(maxDegree));
         PutDataRequest putDataRequest = putDataMapRequest.asPutDataRequest();
 
         PendingResult<DataApi.DataItemResult> pendingResult =
@@ -455,7 +478,7 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter implements
             }
         });
 
-    }
+    }}
 
     private void updateWidgets() {
         Context context = getContext();
