@@ -58,7 +58,9 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.Date;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Locale;
 import java.util.Vector;
 import java.util.concurrent.ExecutionException;
 
@@ -97,6 +99,11 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter implements
     public static final int LOCATION_STATUS_SERVER_INVALID = 2;
     public static final int LOCATION_STATUS_UNKNOWN = 3;
     public static final int LOCATION_STATUS_INVALID = 4;
+
+    public final String WEARABLE_MAX = "MAX";
+    public final String WEARABLE_MIN = "MIN";
+    public final String WEARABLE_DATE = "DATE";
+    public final String WEARABLE_ICON = "ICON";
 
     GoogleApiClient mGoogleApiClient;
     final String WEARABLE_TAG = "Notify Wearables: ";
@@ -451,19 +458,22 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter implements
         //Get the weather icon to pass to the wearable
         Resources resources = getContext().getResources();
         Bitmap icon = BitmapFactory.decodeResource(resources,
-                Utility.getArtResourceForWeatherCondition(wearableData
-                        .getAsInteger(WeatherContract.WeatherEntry.COLUMN_WEATHER_ID)));
+                Utility.getArtResourceForWeatherCondition(weatherID));
 
 
         Asset iconAsset = Utility.createAssetFromBitmap(icon);
 
+            SimpleDateFormat format = new SimpleDateFormat("EEEE", Locale.getDefault());
+            Calendar calendar = Calendar.getInstance();
+            String[] formattedDate = {format.format(calendar.get(Calendar.DAY_OF_WEEK)), Utility.getFormattedMonthDay(getContext(), date)};
+
 
         PutDataMapRequest putDataMapRequest = PutDataMapRequest.create(WEARABLE_DATA_PATH);
-        //Put the time in so data is considered changed
-        putDataMapRequest.getDataMap().putLong("time", new Date().getTime());
-       // putDataMapRequest.getDataMap().putDouble("MAX", wearableData.getAsDouble(WeatherContract.WeatherEntry.COLUMN_MAX_TEMP));
-       // putDataMapRequest.getDataMap().putInt("MAX", 10);
-       putDataMapRequest.getDataMap().putInt("MAX", (int) Math.round(maxDegree));
+
+        putDataMapRequest.getDataMap().putStringArray(WEARABLE_DATE, formattedDate);
+        putDataMapRequest.getDataMap().putAsset(WEARABLE_ICON, iconAsset);
+        putDataMapRequest.getDataMap().putInt(WEARABLE_MIN, (int) Math.round(minDegree));
+        putDataMapRequest.getDataMap().putInt(WEARABLE_MAX, (int) Math.round(maxDegree));
         PutDataRequest putDataRequest = putDataMapRequest.asPutDataRequest();
 
         PendingResult<DataApi.DataItemResult> pendingResult =

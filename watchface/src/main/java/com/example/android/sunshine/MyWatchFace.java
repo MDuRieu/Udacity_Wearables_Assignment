@@ -21,9 +21,12 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.res.Resources;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Point;
 import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.os.Bundle;
@@ -33,11 +36,19 @@ import android.support.wearable.watchface.CanvasWatchFaceService;
 import android.support.wearable.watchface.WatchFaceStyle;
 import android.text.format.Time;
 import android.util.Log;
+import android.view.Display;
+import android.view.LayoutInflater;
 import android.view.SurfaceHolder;
+import android.view.View;
 import android.view.WindowInsets;
+import android.view.WindowManager;
+import android.widget.ImageView;
+import android.widget.TextView;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.common.api.ResultCallback;
+import com.google.android.gms.wearable.Asset;
 import com.google.android.gms.wearable.DataApi;
 import com.google.android.gms.wearable.DataEvent;
 import com.google.android.gms.wearable.DataEventBuffer;
@@ -46,6 +57,7 @@ import com.google.android.gms.wearable.DataMap;
 import com.google.android.gms.wearable.DataMapItem;
 import com.google.android.gms.wearable.Wearable;
 
+import java.io.InputStream;
 import java.lang.ref.WeakReference;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
@@ -72,10 +84,26 @@ public class MyWatchFace extends CanvasWatchFaceService implements DataApi.DataL
 
     GoogleApiClient mGoogleApiClient;
 
-    int value;
+    public final String WEARABLE_MAX = "MAX";
+    public final String WEARABLE_MIN = "MIN";
+    public final String WEARABLE_DATE = "DATE";
+    public final String WEARABLE_ICON = "ICON";
+
+    DataMap dataMap;
+    private final Point displaySize = new Point();
+
+    Integer maxTemp, minTemp, specW, specH;
+
+    Asset iconAsset;
 
     String LOG_TAG = "Data Layer Connections";
-    public final String WEARABLE_DATA_PATH = "/sunshine/wearabledata";
+
+    View rootLayout;
+
+    TextView maxTempView, minTempView, dateView;
+    ImageView iconView;
+    Bitmap weatherIcon;
+
 
     @Override
     public Engine onCreateEngine() {
@@ -111,29 +139,31 @@ public class MyWatchFace extends CanvasWatchFaceService implements DataApi.DataL
                 Log.v(LOG_TAG, "DataItem Changed");
 
                 DataItem dataItem = event.getDataItem();
-                //if (dataItem.getUri().getPath().compareTo(WEARABLE_DATA_PATH) == 0) {
-                    DataMap dataMap = DataMapItem.fromDataItem(dataItem).getDataMap();
 
-                    value = dataMap.getInt("MAX");
+                dataMap = DataMapItem.fromDataItem(dataItem).getDataMap();
 
-                    Log.d(LOG_TAG, "Received: " + value);
+                 maxTemp = dataMap.getInt(WEARABLE_MAX);
+                 minTemp = dataMap.getInt(WEARABLE_MIN);
+                String[] dateString = dataMap.getStringArray(WEARABLE_DATE);
+                Asset iconAsset = dataMap.getAsset(WEARABLE_ICON);
+                loadBitmapFromAsset(iconAsset);
 
-                    // PendingResult<DataItemBuffer> results = Wearable.DataApi.getDataItems(mGoogleApiClient);
-                    //  results.setResultCallback(new ResultCallback<DataItemBuffer>() {
-                    //      @Override
-                    //      public void onResult(DataItemBuffer dataItems) {
-                    //         if (dataItems.getCount() != 0) {
-                    //             DataMapItem dataMapItem = DataMapItem.fromDataItem(dataItems.get(0));
-
-                    // This should read the correct value.
-
-                    //        }
-
-                    //        dataItems.release();
-                    //    }
+                Log.d(LOG_TAG, "Received: " + maxTemp + " " + minTemp + " " + dateString + " " + iconAsset);
                 }
-                ;
-            }}
+            }
+}
+
+    public void loadBitmapFromAsset(Asset asset) {
+        //Async call to load the bitmap from the asset
+        Wearable.DataApi.getFdForAsset(mGoogleApiClient, asset).setResultCallback(new ResultCallback<DataApi.GetFdForAssetResult>() {
+            @Override
+            public void onResult(DataApi.GetFdForAssetResult getFdForAssetResult) {
+                InputStream inputStream = getFdForAssetResult.getInputStream();
+                // decode the stream into a bitmap
+                weatherIcon = BitmapFactory.decodeStream(inputStream);
+            }
+        });
+    }
 
     private static class EngineHandler extends Handler {
         private final WeakReference<MyWatchFace.Engine> mWeakReference;
@@ -185,7 +215,6 @@ public class MyWatchFace extends CanvasWatchFaceService implements DataApi.DataL
         public void onCreate(SurfaceHolder holder) {
             super.onCreate(holder);
 
-            value = 5;
 
             setWatchFaceStyle(new WatchFaceStyle.Builder(MyWatchFace.this)
                     .setCardPeekMode(WatchFaceStyle.PEEK_MODE_VARIABLE)
@@ -203,6 +232,21 @@ public class MyWatchFace extends CanvasWatchFaceService implements DataApi.DataL
             mTextPaint = createTextPaint(resources.getColor(R.color.digital_text));
 
             mTime = new Time();
+
+            LayoutInflater inflater = (LayoutInflater) getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+            rootLayout = inflater.inflate(R.layout.watch_face_layout, null);
+            Display display = ((WindowManager) getSystemService(Context.WINDOW_SERVICE))
+                    .getDefaultDisplay();
+            display.getSize(displaySize);
+
+            specW = View.MeasureSpec.makeMeasureSpec(displaySize.x, View.MeasureSpec.EXACTLY);
+            specH = View.MeasureSpec.makeMeasureSpec(displaySize.y, View.MeasureSpec.EXACTLY);
+
+            maxTempView = (TextView) rootLayout.findViewById(R.id.maxTemp_TextView);
+            minTempView = (TextView) rootLayout.findViewById(R.id.minTemp_TextView);
+            dateView = (TextView) rootLayout.findViewById(R.id.date_TextView);
+            iconView = (ImageView) rootLayout.findViewById(R.id.weatherIcon_ImageView);
+
         }
 
         @Override
@@ -258,16 +302,18 @@ public class MyWatchFace extends CanvasWatchFaceService implements DataApi.DataL
         @Override
         public void onApplyWindowInsets(WindowInsets insets) {
             super.onApplyWindowInsets(insets);
+            if (insets.isRound()) {
+                // Shrink the face to fit on a round screen
+                mYOffset = mXOffset = displaySize.x * 0.1f;
+                displaySize.y -= 2 * mXOffset;
+                displaySize.x -= 2 * mXOffset;
+            } else {
+                mXOffset = mYOffset = 0;
+            }
 
-            // Load resources that have alternate values for round watches.
-            Resources resources = MyWatchFace.this.getResources();
-            boolean isRound = insets.isRound();
-            mXOffset = resources.getDimension(isRound
-                    ? R.dimen.digital_x_offset_round : R.dimen.digital_x_offset);
-            float textSize = resources.getDimension(isRound
-                    ? R.dimen.digital_text_size_round : R.dimen.digital_text_size);
-
-            mTextPaint.setTextSize(textSize);
+            // Recompute the MeasureSpec fields - these determine the actual size of the layout
+            specW = View.MeasureSpec.makeMeasureSpec(displaySize.x, View.MeasureSpec.EXACTLY);
+            specH = View.MeasureSpec.makeMeasureSpec(displaySize.y, View.MeasureSpec.EXACTLY);
         }
 
         @Override
@@ -336,7 +382,27 @@ public class MyWatchFace extends CanvasWatchFaceService implements DataApi.DataL
             String text = mAmbient
                     ? String.format("%d:%02d", mTime.hour, mTime.minute)
                     : String.format("%d:%02d:%02d", mTime.hour, mTime.minute, mTime.second);
-            canvas.drawText(Integer.toString(value), mXOffset, mYOffset, mTextPaint);
+
+            if(maxTemp != null && minTemp != null ){
+
+              //  canvas.drawText(Integer.toString(maxTemp)
+              //          + " " + Integer.toString(minTemp), mXOffset, mYOffset, mTextPaint);
+
+                rootLayout.measure(specW, specH);
+                rootLayout.layout(0, 0, rootLayout.getMeasuredWidth(), rootLayout.getMeasuredHeight());
+
+                maxTempView.setText(Integer.toString(maxTemp));
+                minTempView.setText(Integer.toString(minTemp));
+
+               // iconView.setImageBitmap(weatherIcon);
+
+            }
+            else{
+            System.out.println("Trying to draw" + maxTemp + minTemp);
+                canvas.drawText("Weather data Unavailable", mXOffset, mYOffset, mTextPaint);
+            }
+            rootLayout.draw(canvas);
+
         }
 
         /**
