@@ -38,11 +38,11 @@ import android.view.WindowInsets;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
-import com.google.android.gms.common.api.PendingResult;
-import com.google.android.gms.common.api.ResultCallback;
 import com.google.android.gms.wearable.DataApi;
+import com.google.android.gms.wearable.DataEvent;
 import com.google.android.gms.wearable.DataEventBuffer;
-import com.google.android.gms.wearable.DataItemBuffer;
+import com.google.android.gms.wearable.DataItem;
+import com.google.android.gms.wearable.DataMap;
 import com.google.android.gms.wearable.DataMapItem;
 import com.google.android.gms.wearable.Wearable;
 
@@ -54,11 +54,10 @@ import java.util.concurrent.TimeUnit;
  * Digital watch face with seconds. In ambient mode, the seconds aren't displayed. On devices with
  * low-bit ambient mode, the text is drawn without anti-aliasing in ambient mode.
  */
-public class MyWatchFace extends CanvasWatchFaceService {
+public class MyWatchFace extends CanvasWatchFaceService implements DataApi.DataListener,
+        GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener {
     private static final Typeface NORMAL_TYPEFACE =
             Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL);
-
-
 
     /**
      * Update rate in milliseconds for interactive mode. We update once a second since seconds are
@@ -71,12 +70,70 @@ public class MyWatchFace extends CanvasWatchFaceService {
      */
     private static final int MSG_UPDATE_TIME = 0;
 
+    GoogleApiClient mGoogleApiClient;
+
+    double value;
+
+    String LOG_TAG = "Data Layer Connections";
+    public final String WEARABLE_DATA_PATH = "/sunshine/wearabledata";
+
     @Override
     public Engine onCreateEngine() {
+        mGoogleApiClient = new GoogleApiClient.Builder(getApplicationContext())
+                .addApi(Wearable.API)
+                .addOnConnectionFailedListener(this)
+                .addConnectionCallbacks(this).build();
+        mGoogleApiClient.connect();
+
         return new Engine();
     }
 
+    @Override
+    public void onConnected(Bundle bundle) {
+        Log.v(LOG_TAG, "Google Client API Connected: " + bundle);
+        Wearable.DataApi.addListener(mGoogleApiClient, this);
+    }
 
+    @Override
+    public void onConnectionSuspended(int i) {
+        Log.d(LOG_TAG, "Connection suspended: " + i);
+    }
+
+    @Override
+    public void onConnectionFailed(ConnectionResult connectionResult) {
+        Log.d(LOG_TAG, "Connection Failed: " + connectionResult);
+    }
+
+    @Override
+    public void onDataChanged(DataEventBuffer dataEventBuffer) {
+        for (DataEvent event : dataEventBuffer) {
+            if (event.getType() == DataEvent.TYPE_CHANGED) {
+                Log.v(LOG_TAG, "DataItem Changed");
+
+                DataItem dataItem = event.getDataItem();
+                if (dataItem.getUri().getPath().compareTo(WEARABLE_DATA_PATH) == 0) {
+                    DataMap dataMap = DataMapItem.fromDataItem(dataItem).getDataMap();
+
+                    value = dataMap.getDouble("MAX");
+
+                    Log.d(LOG_TAG, "Received: " + value);
+
+                    // PendingResult<DataItemBuffer> results = Wearable.DataApi.getDataItems(mGoogleApiClient);
+                    //  results.setResultCallback(new ResultCallback<DataItemBuffer>() {
+                    //      @Override
+                    //      public void onResult(DataItemBuffer dataItems) {
+                    //         if (dataItems.getCount() != 0) {
+                    //             DataMapItem dataMapItem = DataMapItem.fromDataItem(dataItems.get(0));
+
+                    // This should read the correct value.
+
+                    //        }
+
+                    //        dataItems.release();
+                    //    }
+                }
+                ;
+            }}}
 
     private static class EngineHandler extends Handler {
         private final WeakReference<MyWatchFace.Engine> mWeakReference;
@@ -98,8 +155,7 @@ public class MyWatchFace extends CanvasWatchFaceService {
         }
     }
 
-    private class Engine extends CanvasWatchFaceService.Engine implements DataApi.DataListener,
-    GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener {
+    private class Engine extends CanvasWatchFaceService.Engine {
         final Handler mUpdateTimeHandler = new EngineHandler(this);
         boolean mRegisteredTimeZoneReceiver = false;
         Paint mBackgroundPaint;
@@ -118,36 +174,6 @@ public class MyWatchFace extends CanvasWatchFaceService {
         float mXOffset;
         float mYOffset;
 
-        double value = 0.2d;
-        public final String WEARABLE_DATA_PATH = "/sunshine/wearabledata";
-
-      //  GoogleApiClient mGoogleApiClient = new GoogleApiClient.Builder(MyWatchFace.this)
-      //          .addConnectionCallbacks(this)
-      //          .addOnConnectionFailedListener(this)
-      //          .addApi(Wearable.API)
-      //          .build();
-        String TAG = "watchface Api Client";
-        GoogleApiClient mGoogleApiClient = new GoogleApiClient.Builder(MyWatchFace.this)
-                .addConnectionCallbacks(new GoogleApiClient.ConnectionCallbacks() {
-                    @Override
-                    public void onConnected(Bundle connectionHint) {
-                        Log.d(TAG, "onConnected: " + connectionHint);
-                        // Now you can use the Data Layer API
-                    }
-                    @Override
-                    public void onConnectionSuspended(int cause) {
-                        Log.d(TAG, "onConnectionSuspended: " + cause);
-                    }
-                })
-                .addOnConnectionFailedListener(new GoogleApiClient.OnConnectionFailedListener() {
-                    @Override
-                    public void onConnectionFailed(ConnectionResult result) {
-                        Log.d(TAG, "onConnectionFailed: " + result);
-                    }
-                })
-                        // Request access only to the Wearable API
-                .addApi(Wearable.API)
-                .build();
 
         /**
          * Whether the display supports fewer bits for each color in ambient mode. When true, we
@@ -158,6 +184,8 @@ public class MyWatchFace extends CanvasWatchFaceService {
         @Override
         public void onCreate(SurfaceHolder holder) {
             super.onCreate(holder);
+
+            value = 2.2d;
 
             setWatchFaceStyle(new WatchFaceStyle.Builder(MyWatchFace.this)
                     .setCardPeekMode(WatchFaceStyle.PEEK_MODE_VARIABLE)
@@ -343,40 +371,8 @@ public class MyWatchFace extends CanvasWatchFaceService {
             }
         }
 
-        @Override
-        public void onConnected(Bundle bundle) {
-            Wearable.DataApi.addListener(mGoogleApiClient, Engine.this);
 
         }
 
-        @Override
-        public void onConnectionSuspended(int i) {
-
-        }
-
-        @Override
-        public void onDataChanged(DataEventBuffer dataEventBuffer) {
-            PendingResult<DataItemBuffer> results = Wearable.DataApi.getDataItems(mGoogleApiClient);
-            results.setResultCallback(new ResultCallback<DataItemBuffer>() {
-                @Override
-                public void onResult(DataItemBuffer dataItems) {
-                    if (dataItems.getCount() != 0) {
-                        DataMapItem dataMapItem = DataMapItem.fromDataItem(dataItems.get(0));
-
-                        // This should read the correct value.
-                        value = dataMapItem.getDataMap().getFloat("MAX");
-                    }
-
-                    dataItems.release();
-                }
-            });
-
-
-        }
-
-        @Override
-        public void onConnectionFailed(ConnectionResult connectionResult) {
-
-        }
     }
-}
+

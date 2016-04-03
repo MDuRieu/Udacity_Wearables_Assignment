@@ -39,6 +39,7 @@ import com.example.android.sunshine.app.muzei.WeatherMuzeiSource;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.PendingResult;
+import com.google.android.gms.common.api.ResultCallback;
 import com.google.android.gms.wearable.Asset;
 import com.google.android.gms.wearable.DataApi;
 import com.google.android.gms.wearable.PutDataMapRequest;
@@ -57,6 +58,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.Date;
 import java.util.Vector;
 import java.util.concurrent.ExecutionException;
 
@@ -435,12 +437,23 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter implements
 
 
         PutDataMapRequest putDataMapRequest = PutDataMapRequest.create(WEARABLE_DATA_PATH);
+        //Put the time in so data is considered changed
+        putDataMapRequest.getDataMap().putLong("time", new Date().getTime());
         putDataMapRequest.getDataMap().putDouble("MAX", wearableData.getAsDouble(WeatherContract.WeatherEntry.COLUMN_MAX_TEMP));
-
+      //  putDataMapRequest.getDataMap().putDouble("MAX", 5.5d);
         PutDataRequest putDataRequest = putDataMapRequest.asPutDataRequest();
 
         PendingResult<DataApi.DataItemResult> pendingResult =
                 Wearable.DataApi.putDataItem(mGoogleApiClient, putDataRequest);
+
+        pendingResult.setResultCallback(new ResultCallback<DataApi.DataItemResult>() {
+            @Override
+            public void onResult(DataApi.DataItemResult dataItemResult) {
+                if (dataItemResult.getStatus().isSuccess()) {
+                    Log.v(LOG_TAG, "Data Item Sent: " + dataItemResult.getDataItem().getUri());
+                }
+            }
+        });
 
     }
 
