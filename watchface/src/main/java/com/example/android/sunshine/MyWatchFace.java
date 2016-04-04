@@ -100,9 +100,10 @@ public class MyWatchFace extends CanvasWatchFaceService implements DataApi.DataL
 
     View rootLayout;
 
-    TextView maxTempView, minTempView, dateView;
+    TextView maxTempView, minTempView, dateView, timeView;
     ImageView iconView;
     Bitmap weatherIcon;
+    String [] date;
 
 
     @Override
@@ -144,11 +145,11 @@ public class MyWatchFace extends CanvasWatchFaceService implements DataApi.DataL
 
                  maxTemp = dataMap.getInt(WEARABLE_MAX);
                  minTemp = dataMap.getInt(WEARABLE_MIN);
-                String[] dateString = dataMap.getStringArray(WEARABLE_DATE);
-                Asset iconAsset = dataMap.getAsset(WEARABLE_ICON);
-                loadBitmapFromAsset(iconAsset);
+                 date = dataMap.getStringArray(WEARABLE_DATE);
+                iconAsset = dataMap.getAsset(WEARABLE_ICON);
+                 loadBitmapFromAsset(iconAsset);
 
-                Log.d(LOG_TAG, "Received: " + maxTemp + " " + minTemp + " " + dateString + " " + iconAsset);
+                Log.d(LOG_TAG, "Received: " + maxTemp + " " + minTemp + " " + date + " " + iconAsset);
                 }
             }
 }
@@ -245,6 +246,7 @@ public class MyWatchFace extends CanvasWatchFaceService implements DataApi.DataL
             maxTempView = (TextView) rootLayout.findViewById(R.id.maxTemp_TextView);
             minTempView = (TextView) rootLayout.findViewById(R.id.minTemp_TextView);
             dateView = (TextView) rootLayout.findViewById(R.id.date_TextView);
+            timeView = (TextView) rootLayout.findViewById(R.id.time_TextView);
             iconView = (ImageView) rootLayout.findViewById(R.id.weatherIcon_ImageView);
 
         }
@@ -383,23 +385,24 @@ public class MyWatchFace extends CanvasWatchFaceService implements DataApi.DataL
                     ? String.format("%d:%02d", mTime.hour, mTime.minute)
                     : String.format("%d:%02d:%02d", mTime.hour, mTime.minute, mTime.second);
 
-            if(maxTemp != null && minTemp != null ){
+            timeView.setText(text);
 
-              //  canvas.drawText(Integer.toString(maxTemp)
-              //          + " " + Integer.toString(minTemp), mXOffset, mYOffset, mTextPaint);
+            if(maxTemp != null && minTemp != null ){
 
                 rootLayout.measure(specW, specH);
                 rootLayout.layout(0, 0, rootLayout.getMeasuredWidth(), rootLayout.getMeasuredHeight());
 
                 maxTempView.setText(Integer.toString(maxTemp));
                 minTempView.setText(Integer.toString(minTemp));
-
-               // iconView.setImageBitmap(weatherIcon);
+              //  dateView.setText(Html.fromHtml("<p><big><strong>" + date[0] + "</strong></big><br>" + date[1] + "</p>"));
+                dateView.setText(date[0] + "    " + date[1]);
+                iconView.setImageBitmap(weatherIcon);
+               // iconView.setPaddingRelative(rootLayout.getMeasuredWidth()/3, 0, 0, 0 );
 
             }
             else{
             System.out.println("Trying to draw" + maxTemp + minTemp);
-                canvas.drawText("Weather data Unavailable", mXOffset, mYOffset, mTextPaint);
+
             }
             rootLayout.draw(canvas);
 

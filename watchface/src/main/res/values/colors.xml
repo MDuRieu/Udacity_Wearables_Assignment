@@ -3,4 +3,5 @@
     <color name="background">#000000</color>
     <color name="background2">#2196f3</color>
     <color name="digital_text">#ffffff</color>
+    <color name="low_temp_grey">#e0e0e0</color>
 </resources>
